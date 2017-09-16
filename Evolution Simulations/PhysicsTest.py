@@ -11,16 +11,25 @@ def display(screen, organism):
 
 screen = pg.display.set_mode((1000, 800))
 
-bob = Organism()
+bob = Organism(3, 3)
 
 clock = pg.time.Clock()
+fps = 60
 done = False
 while not done:
-    clock.tick(60)
+    clock.tick(fps)
 
     for event in pg.event.get():
         if event.type == pg.QUIT:
             done = True
+        if event.type == pg.MOUSEBUTTONDOWN:
+            if event.button == 4:
+                fps += 1
+                print(fps)
+            elif event.button == 5:
+                if fps > 1:
+                    fps -= 1
+                print(fps)
 
     display(screen, bob)
 

@@ -8,9 +8,9 @@ def refresh(screen):
 
     screen.fill(white)
 
-    org_a.draw_on(screen, (100, 400))
-    org_b.draw_on(screen, (400, 400))
-    org_c.draw_on(screen, (700, 400))
+    org_a.draw_on(screen, (100, -300))
+    org_b.draw_on(screen, (400, -300))
+    org_c.draw_on(screen, (700, -300))
 
     pg.display.update()
 
