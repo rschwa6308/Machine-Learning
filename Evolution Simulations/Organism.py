@@ -10,24 +10,40 @@ class Organism:
         self.num_nodes = randint(3, 6)
         self.nodes = [Node() for _ in range(self.num_nodes)]
 
-        # bounded by # of possible diagonals
-        if self.num_nodes <= 4:
-            self.num_muscles = randint(self.num_nodes * (self.num_nodes - 3) / 2, self.num_nodes - 1)
-        else:
-            self.num_muscles = randint(self.num_nodes - 1, self.num_nodes * (self.num_nodes - 3) / 2)
+        # bounded by # of sides + # of possible diagonals
+        self.num_muscles = randint(self.num_nodes - 1, self.num_nodes - 1 + self.num_nodes * (self.num_nodes - 3) / 2)
         self.muscles = [Muscle() for _ in range(self.num_muscles)]
 
-        # # Connect all nodes into a chain (insures all nodes are connected)
-        # for i in range(len(self.nodes) - 2):
-        #     self.muscles[i].connect(self.nodes[i], self.nodes[i + 1])
-        #
-        # # Connect all remaining muscles to random nodes
-        # for i in range(len(self.nodes) - 1, self.num_muscles):
-        #     self.muscles[i].connect(choice(self.nodes), choice(self.nodes))
-        for _ in range(2):
-            for muscle in self.muscles:
-                for node in sorted(self.nodes, key=lambda n: 0 if n.connections == 0 else randint(1, 1000)):
-                    muscle.connect(node)
+        # Connect all nodes into a chain (insures all nodes are connected)
+        for i in range(self.num_nodes - 1):
+            self.muscles[i].connect(self.nodes[i])
+            self.muscles[i].connect(self.nodes[i + 1])
+
+        # Connect all remaining muscles to random nodes
+        for muscle in self.muscles[self.num_nodes - 1:]:
+            nodes_not_connected_to = [n for n in self.nodes if n is not muscle.node_a and n is not muscle.node_b]
+            muscle.connect(choice(nodes_not_connected_to))
+            muscle.connect(choice(nodes_not_connected_to))
+
+        for m in self.muscles:
+            dist = m.node_a.pos.distance_to(m.node_b.pos)
+            m.min_length = dist - 25
+            m.max_length = dist + 25
+
+        # 1 time unit = 1 frame = 1/60th second
+        self.heartbeat = 0
+        self.heartbeat_period = 60
+
+    def apply_physics(self):
+        for muscle in self.muscles:
+            if self.heartbeat < muscle.heartbeat_start:
+                muscle.contract()
+            else:
+                muscle.expand()
+
+        for node in self.nodes:
+            node.apply_velocity()
+        self.heartbeat = (self.heartbeat + 1) % self.heartbeat_period
 
     def draw_on(self, screen, offset):
         offset = V2(offset)
@@ -57,13 +73,21 @@ class Node:
         self.connections = 0
 
         self.color = (int(self.friction * 255), 0, int((1 - self.friction) * 255))
-        self.radius = int(10 * (self.mass ** (1/3)))
+        self.radius = int(8 * (self.mass ** (1/3)))
+
+        self.vel = V2((0, 0))
+
+    def apply_force(self, force):
+        self.vel += force / self.mass
+
+    def apply_velocity(self):
+        self.pos += self.vel
 
 
 class Muscle:
     max_length_delta = 50
 
-    def __init__(self, min_length=None, max_length=None, strength=None):
+    def __init__(self, min_length=None, max_length=None, strength=None, heartbeat_start=None):
         if min_length:
             self.min_length = min_length
         else:
@@ -80,9 +104,14 @@ class Muscle:
             # 1 force unit = 1 mass unit * pixel / frame ^ 2
             self.strength = uniform(0, 1)
 
+        if heartbeat_start:
+            self.heartbeat_start = heartbeat_start
+        else:
+            self.heartbeat_start = randint(0, 60)
+
         self.node_a, self.node_b = None, None
 
-        self.width = int(self.strength * 10)
+        self.width = max(int(self.strength ** 0.5 * 10), 1)
 
     def connect(self, node):
         if self.node_a:
@@ -90,3 +119,23 @@ class Muscle:
         else:
             self.node_a = node
         node.connections += 1
+
+    def expand(self):
+        if self.min_length <= self.node_b.pos.distance_to(self.node_a.pos) <= self.max_length:
+            force_a = (self.node_b.pos - self.node_a.pos).normalize() * self.strength / 2
+            self.node_a.apply_force(force_a)
+            self.node_b.apply_force(-force_a)
+        else:
+            other = self.node_b.pos - self.node_a.pos
+            other_length_sqrd = other[0] * other[0] + other[1] * other[1]
+            projected_length_times_other_length = self.node_a.vel.dot(other)
+            proj = other * (projected_length_times_other_length / other_length_sqrd)
+
+            v = self.node_a.vel - proj
+            print(v)
+
+    def contract(self):
+        if self.min_length <= self.node_a.pos.distance_to(self.node_b.pos) <= self.max_length:
+            force_a = (self.node_a.pos - self.node_b.pos).normalize() * self.strength / 2
+            self.node_a.apply_force(force_a)
+            self.node_b.apply_force(-force_a)
