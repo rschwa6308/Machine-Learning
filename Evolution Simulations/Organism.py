@@ -95,6 +95,9 @@ class Organism:
     def reset_to_start(self):
         for node in self.nodes:
             node.pos = V2(self.starting_positions[node])
+        for muscle in self.muscles:
+            dist = muscle.node_a.pos.distance_to(muscle.node_b.pos)
+            muscle.desired_length = dist
 
     def get_children(self, quanitiy):
         new_organisms = []
@@ -190,7 +193,7 @@ class Muscle:
         displacement = self.node_b.pos - self.node_a.pos
         # stretch_factor = displacement.length() / self.mid_length
         stretch_length = displacement.length() - self.desired_length
-        force_a = displacement.normalize() * 0.5 * self.strength * copysign(stretch_length ** 2, stretch_length)
+        force_a = displacement.normalize() * self.strength * stretch_length
         self.node_a.apply_force(force_a)
         self.node_b.apply_force(-force_a)
 

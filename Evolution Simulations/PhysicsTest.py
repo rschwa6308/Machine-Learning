@@ -11,7 +11,7 @@ def display(screen, organism):
 
 screen = pg.display.set_mode((1000, 800))
 
-bob = Organism(3, 3)
+bob = Organism()
 
 clock = pg.time.Clock()
 fps = 60
@@ -33,6 +33,8 @@ while not done:
         elif event.type == pg.KEYDOWN:
             if event.key == pg.K_SPACE:
                 bob = bob.get_children(1)[0]
+            if event.key == pg.K_r:
+                bob = Organism()
 
     display(screen, bob)
 
