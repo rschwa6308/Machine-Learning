@@ -2,6 +2,8 @@ import pygame as pg
 from pygame.math import Vector2 as V2
 from random import randint, uniform, choice
 from itertools import combinations
+from math import copysign
+from copy import copy, deepcopy
 
 from Constants import *
 
@@ -47,31 +49,39 @@ class Organism:
 
         for m in self.muscles:
             dist = m.node_a.pos.distance_to(m.node_b.pos)
-            m.min_length = max(dist - 25, 5)
-            m.max_length = dist + 25
+            m.desired_length = dist
+            m.min_length = m.desired_length * 0.5
+            m.max_length = m.desired_length * 1.5
 
         # 1 time unit = 1 frame = 1/60th second
         self.heartbeat = 0
 
+        self.starting_positions = {node: (node.pos.x, node.pos.y) for node in self.nodes}
+
     def apply_physics(self):
+        g = 1
         # Gravity
         for node in self.nodes:
-            node.apply_force(V2(0, -1))
-
-        for muscle in self.muscles:
-            if muscle.heartbeat_start <= self.heartbeat <= muscle.heartbeat_start + self.heartbeat_period // 2:
-                muscle.contract()
-            else:
-                muscle.expand()
-
-        for node in self.nodes:
-            node.apply_velocity()
+            node.apply_force(V2(0, -g))
 
         # Ground Collision
         for node in self.nodes:
             if node.pos.y - node.radius <= 0:
                 node.pos.y = node.radius
                 node.vel.y = 0
+                # TODO: make friction force proportional to total normal force on node
+                friction_force = V2(-copysign(node.friction * node.mass * g, node.vel.x), 0)
+                node.apply_force(friction_force)
+
+        for muscle in self.muscles:
+            if muscle.heartbeat_start <= self.heartbeat <= muscle.heartbeat_start + self.heartbeat_period // 2:
+                muscle.contract()
+            else:
+                muscle.expand()
+            # muscle.passive()
+
+        for node in self.nodes:
+            node.apply_velocity()
 
         self.heartbeat = (self.heartbeat + 1) % self.heartbeat_period
 
@@ -81,6 +91,30 @@ class Organism:
             pg.draw.line(screen, black, (muscle.node_a.pos.x, screen.get_height() - muscle.node_a.pos.y) + offset,(muscle.node_b.pos.x, screen.get_height() - muscle.node_b.pos.y) + offset, muscle.width)
         for node in self.nodes:
             pg.draw.circle(screen, node.color, (int(node.pos.x + offset.x), int(screen.get_height() - node.pos.y + offset.y)), node.radius, 0)
+
+    def reset_to_start(self):
+        for node in self.nodes:
+            node.pos = V2(self.starting_positions[node])
+
+    def get_children(self, quanitiy):
+        new_organisms = []
+        for _ in range(quanitiy):
+            new_organism = self
+
+            new_organism.reset_to_start()
+            for node in new_organism.nodes:
+                node.pos.x *= uniform(0.95, 1.05)
+                node.pos.y *= uniform(0.95, 1.05)
+
+            for muscle in new_organism.muscles:
+                muscle.strength *= uniform(0.95, 1.05)
+                muscle.max_length *= uniform(0.95, 1.05)
+                muscle.min_length *= uniform(0.95, 1.05)
+
+            new_organism.starting_positions = {node: (node.pos.x, node.pos.y) for node in new_organism.nodes}
+
+            new_organisms.append(new_organism)
+        return new_organisms
 
 
 class Node:
@@ -128,6 +162,8 @@ class Muscle:
         else:
             self.max_length = uniform(self.min_length, self.min_length + self.max_length_delta)
 
+        self.desired_length = None
+
         if strength:
             self.strength = strength
         else:
@@ -150,49 +186,20 @@ class Muscle:
             self.node_a = node
         node.connections += 1
 
+    def passive(self):
+        displacement = self.node_b.pos - self.node_a.pos
+        # stretch_factor = displacement.length() / self.mid_length
+        stretch_length = displacement.length() - self.desired_length
+        force_a = displacement.normalize() * 0.5 * self.strength * copysign(stretch_length ** 2, stretch_length)
+        self.node_a.apply_force(force_a)
+        self.node_b.apply_force(-force_a)
+
     def expand(self):
-        if self.node_a.pos.distance_to(self.node_b.pos) == 0:
-            return
-        print("expand")
-        if self.node_a.pos.distance_to(self.node_b.pos) <= self.max_length:
-            force_a = (self.node_a.pos - self.node_b.pos).normalize() * self.strength / 2 * (self.max_length - self.node_a.pos.distance_to(self.node_b.pos)) / self.max_length
-            self.node_a.apply_force(force_a)
-            self.node_b.apply_force(-force_a)
-        else:
-            print("expand limit")
-            displacement = self.node_a.pos - self.node_b.pos
-            total_mass = self.node_a.mass + self.node_b.mass
-            projection_a = projection(self.node_a.vel, displacement)
-            projection_b = projection(self.node_b.vel, displacement)
-
-            delta_v = projection_a - projection_b
-            delta_s = displacement.normalize() * (displacement.length() - self.max_length)
-
-            self.node_a.vel -= delta_v * (self.node_b.mass / total_mass)
-            self.node_b.vel += delta_v * (self.node_a.mass / total_mass)
-            self.node_a.pos -= delta_s * (self.node_b.mass / total_mass)
-            self.node_b.pos += delta_s * (self.node_a.mass / total_mass)
+        if self.desired_length < self.max_length:
+            self.desired_length += 1
+        self.passive()
 
     def contract(self):
-        if self.node_a.pos.distance_to(self.node_b.pos) == 0:
-            return
-        print("contract")
-        if self.node_b.pos.distance_to(self.node_a.pos) >= self.min_length:
-            force_a = (self.node_b.pos - self.node_a.pos).normalize() * self.strength / 2 * (self.node_a.pos.distance_to(self.node_b.pos) - self.min_length) / self.min_length
-            self.node_a.apply_force(force_a)
-            self.node_b.apply_force(-force_a)
-        else:
-            print("contract limit")
-            displacement = self.node_b.pos - self.node_a.pos
-            total_mass = self.node_a.mass + self.node_b.mass
-            projection_a = projection(self.node_a.vel, displacement)
-            projection_b = projection(self.node_b.vel, displacement)
-
-            delta_v = projection_a - projection_b
-            delta_s = displacement.normalize() * (self.min_length - displacement.length())
-
-            self.node_a.vel -= delta_v * (self.node_b.mass / total_mass)
-            self.node_b.vel += delta_v * (self.node_a.mass / total_mass)
-            self.node_a.pos -= delta_s * (self.node_b.mass / total_mass)
-            self.node_b.pos += delta_s * (self.node_a.mass / total_mass)
-
+        if self.desired_length > self.min_length:
+            self.desired_length -= 1
+        self.passive()

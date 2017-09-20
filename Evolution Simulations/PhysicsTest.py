@@ -22,7 +22,7 @@ while not done:
     for event in pg.event.get():
         if event.type == pg.QUIT:
             done = True
-        if event.type == pg.MOUSEBUTTONDOWN:
+        elif event.type == pg.MOUSEBUTTONDOWN:
             if event.button == 4:
                 fps += 1
                 print(fps)
@@ -30,6 +30,9 @@ while not done:
                 if fps > 1:
                     fps -= 1
                 print(fps)
+        elif event.type == pg.KEYDOWN:
+            if event.key == pg.K_SPACE:
+                bob = bob.get_children(1)[0]
 
     display(screen, bob)
 
