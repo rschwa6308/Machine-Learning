@@ -19,7 +19,7 @@ class Generation:
 
     def run_tests(self):
         for organism in self.organisms:
-            organism.fitness = get_walking_distance(organism, 5)
+            organism.fitness = get_walking_distance(organism, 10)
             organism.reset_to_start()
 
     def sort(self):
@@ -40,8 +40,8 @@ class Generation:
             probability = (-1.0 / self.size) * rank + 1       # linear decline
             if random() < probability:
                 # new_organisms.extend(self.organisms[rank].get_children(2))
-                new_organisms.append(self.organisms[rank].get_children(1)[0])
-                new_organisms.append(self.organisms[rank])
+                new_organisms.extend(self.organisms[rank].get_children(2))
+                # new_organisms.append(self.organisms[rank])
 
         size_delta = len(new_organisms) - self.size
         if size_delta < 0:
@@ -72,6 +72,27 @@ def get_sorted(organisms):
     return sorted(organisms, key=lambda o: o.fitness)[::-1]
 
 
+def watch(screen, organism):
+    clock = pg.time.Clock()
+    tick = 0
+    max_tick = 60 * 10
+    while tick < max_tick:
+        clock.tick(60)
+        for event in pg.event.get():
+            if event.type == pg.KEYDOWN:
+                if event.key == pg.K_SPACE:
+                    screen.fill((255, 255, 255))
+                    pg.display.update()
+                    return
+        screen.fill((255, 255, 255))
+        for i in range(1, 10):
+            pg.draw.line(screen, (0, 0, 0), (i * 100, 0), (i * 100, screen.get_height()), 2)
+        organism.draw_on(screen, (100, 0))
+        pg.display.update()
+        organism.apply_physics()
+        tick += 1
+
+
 if __name__ == "__main__":
     screen = pg.display.set_mode((1000, 500))
     population_size = 500
@@ -83,5 +104,6 @@ if __name__ == "__main__":
         population.sort()
         best, median, worst = population.get_best(), population.get_median(), population.get_worst()
         print("Population {0}: best = {1}    median = {2}    worst = {3}".format(i, best.fitness, median.fitness, worst.fitness))
-        display(screen, [best, median, worst])
+        # display(screen, [best, median, worst])
+        watch(screen, best)
         population = population.get_next_generation()

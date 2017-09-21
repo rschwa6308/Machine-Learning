@@ -110,11 +110,15 @@ class Organism:
 
     def get_copy(self):
         new_organism = Organism(self.num_nodes, self.num_muscles)
-        node_map = {node: node.get_copy() for node in self.nodes}
-        new_organism.nodes = node_map.
-        for i in range(len(self.muscles)):
-            new_organism.muscles[i] = self.muscles[i].get_copy()
-        new_organism.nodes = list(set([m.node_a for m in new_organism.muscles] + [m.node_b for m in new_organism.muscles]))
+        self.reset_to_start()
+        node_map = {old_node: old_node.get_copy() for old_node in self.nodes}
+        new_organism.muscles = [m.get_copy() for m in self.muscles]
+        for i in range(self.num_muscles):
+            old = self.muscles[i]
+            new = new_organism.muscles[i]
+            new.node_a = node_map[old.node_a]
+            new.node_b = node_map[old.node_b]
+        new_organism.nodes = node_map.values()
         new_organism.starting_positions = {node: (node.pos.x, node.pos.y) for node in new_organism.nodes}
         return new_organism
 
@@ -123,16 +127,17 @@ class Organism:
         for _ in range(quanitiy):
             new_organism = self.get_copy()
 
-
             new_organism.reset_to_start()
             for node in new_organism.nodes:
                 node.pos.x += uniform(-5, 5)
                 node.pos.y += uniform(-5, 5)
 
             for muscle in new_organism.muscles:
-                muscle.strength += uniform(-0.001, 0.001)
                 muscle.max_length += uniform(-2, 2)
                 muscle.min_length += uniform(-2, 2)
+                muscle.strength = max(0, muscle.strength, uniform(-0.001, 0.001))
+                muscle.speed = max(0, muscle.speed + uniform(-0.05, 0.05))
+                muscle.heartbeat_start += randint(-2, 2)
 
             new_organism.starting_positions = {node: (node.pos.x, node.pos.y) for node in new_organism.nodes}
 
@@ -177,7 +182,7 @@ class Node:
 class Muscle:
     max_length_delta = 50
 
-    def __init__(self, min_length=None, max_length=None, strength=None, heartbeat_start=None):
+    def __init__(self, min_length=None, max_length=None, strength=None, speed=None, heartbeat_start=None):
         if min_length:
             self.min_length = min_length
         else:
@@ -188,13 +193,18 @@ class Muscle:
         else:
             self.max_length = uniform(self.min_length, self.min_length + self.max_length_delta)
 
-        self.desired_length = None
+        self.desired_length = (self.min_length + self.max_length) / 2
 
         if strength:
             self.strength = strength
         else:
             # 1 force unit = 1 mass unit * pixel / frame ^ 2
             self.strength = uniform(0, 0.3)
+
+        if speed:
+            self.speed = speed
+        else:
+            self.speed = uniform(0, 2)
 
         if heartbeat_start:
             self.heartbeat_start = heartbeat_start
@@ -213,10 +223,7 @@ class Muscle:
         node.connections += 1
 
     def get_copy(self):
-        new_muscle = Muscle(self.min_length, self.max_length, self.strength, self.heartbeat_start)
-        new_muscle.connect(self.node_a.get_copy())
-        new_muscle.connect(self.node_b.get_copy())
-        return new_muscle
+        return Muscle(self.min_length, self.max_length, self.strength, self.speed, self.heartbeat_start)
 
     def passive(self):
         displacement = self.node_b.pos - self.node_a.pos
@@ -228,10 +235,10 @@ class Muscle:
 
     def expand(self):
         if self.desired_length < self.max_length:
-            self.desired_length += 1
+            self.desired_length += self.speed
         self.passive()
 
     def contract(self):
         if self.desired_length > self.min_length:
-            self.desired_length -= 1
+            self.desired_length -= self.speed
         self.passive()
