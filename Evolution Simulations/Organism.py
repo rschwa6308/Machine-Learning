@@ -21,13 +21,14 @@ class Organism:
         if num_nodes:
             self.num_nodes = num_nodes
         else:
-            self.num_nodes = randint(3, 6)
+            self.num_nodes = randint(3, 7)
 
         if num_muscles:
             self.num_muscles = num_muscles
         else:
             # bounded by # of sides + # of possible diagonals
-            self.num_muscles = randint(self.num_nodes - 1, self.num_nodes - 1 + self.num_nodes * (self.num_nodes - 3) / 2)
+            self.num_muscles = randint(self.num_nodes - 1,
+                                       self.num_nodes - 1 + self.num_nodes * (self.num_nodes - 3) / 2)
 
         self.nodes = [Node() for _ in range(self.num_nodes)]
         self.muscles = [Muscle() for _ in range(self.num_muscles)]
@@ -52,6 +53,11 @@ class Organism:
             m.desired_length = dist
             m.min_length = m.desired_length * 0.5
             m.max_length = m.desired_length * 1.5
+
+        # Set on ground
+        delta_y = min([node.pos.y for node in self.nodes])
+        for node in self.nodes:
+            node.pos.y -= delta_y
 
         # 1 time unit = 1 frame = 1/60th second
         self.heartbeat = 0
@@ -78,7 +84,7 @@ class Organism:
                 muscle.contract()
             else:
                 muscle.expand()
-            # muscle.passive()
+                # muscle.passive()
 
         for node in self.nodes:
             node.apply_velocity()
@@ -88,9 +94,12 @@ class Organism:
     def draw_on(self, screen, offset):
         offset = V2(offset)
         for muscle in self.muscles:
-            pg.draw.line(screen, black, (muscle.node_a.pos.x, screen.get_height() - muscle.node_a.pos.y) + offset,(muscle.node_b.pos.x, screen.get_height() - muscle.node_b.pos.y) + offset, muscle.width)
+            pg.draw.line(screen, black, (muscle.node_a.pos.x, screen.get_height() - muscle.node_a.pos.y) + offset,
+                         (muscle.node_b.pos.x, screen.get_height() - muscle.node_b.pos.y) + offset, muscle.width)
         for node in self.nodes:
-            pg.draw.circle(screen, node.color, (int(node.pos.x + offset.x), int(screen.get_height() - node.pos.y + offset.y)), node.radius, 0)
+            pg.draw.circle(screen, node.color,
+                           (int(node.pos.x + offset.x), int(screen.get_height() - node.pos.y + offset.y)), node.radius,
+                           0)
 
     def reset_to_start(self):
         for node in self.nodes:
@@ -99,20 +108,31 @@ class Organism:
             dist = muscle.node_a.pos.distance_to(muscle.node_b.pos)
             muscle.desired_length = dist
 
+    def get_copy(self):
+        new_organism = Organism(self.num_nodes, self.num_muscles)
+        node_map = {node: node.get_copy() for node in self.nodes}
+        new_organism.nodes = node_map.
+        for i in range(len(self.muscles)):
+            new_organism.muscles[i] = self.muscles[i].get_copy()
+        new_organism.nodes = list(set([m.node_a for m in new_organism.muscles] + [m.node_b for m in new_organism.muscles]))
+        new_organism.starting_positions = {node: (node.pos.x, node.pos.y) for node in new_organism.nodes}
+        return new_organism
+
     def get_children(self, quanitiy):
         new_organisms = []
         for _ in range(quanitiy):
-            new_organism = self
+            new_organism = self.get_copy()
+
 
             new_organism.reset_to_start()
             for node in new_organism.nodes:
-                node.pos.x *= uniform(0.95, 1.05)
-                node.pos.y *= uniform(0.95, 1.05)
+                node.pos.x += uniform(-5, 5)
+                node.pos.y += uniform(-5, 5)
 
             for muscle in new_organism.muscles:
-                muscle.strength *= uniform(0.95, 1.05)
-                muscle.max_length *= uniform(0.95, 1.05)
-                muscle.min_length *= uniform(0.95, 1.05)
+                muscle.strength += uniform(-0.001, 0.001)
+                muscle.max_length += uniform(-2, 2)
+                muscle.min_length += uniform(-2, 2)
 
             new_organism.starting_positions = {node: (node.pos.x, node.pos.y) for node in new_organism.nodes}
 
@@ -140,9 +160,12 @@ class Node:
         self.connections = 0
 
         self.color = (int(self.friction * 255), 0, int((1 - self.friction) * 255))
-        self.radius = int(8 * (self.mass ** (1/3)))
+        self.radius = int(8 * (self.mass ** (1 / 3)))
 
         self.vel = V2((0, 0))
+
+    def get_copy(self):
+        return Node(self.mass, (self.pos.x, self.pos.y), self.friction)
 
     def apply_force(self, force):
         self.vel += force / self.mass
@@ -171,7 +194,7 @@ class Muscle:
             self.strength = strength
         else:
             # 1 force unit = 1 mass unit * pixel / frame ^ 2
-            self.strength = uniform(0, 0.2)
+            self.strength = uniform(0, 0.3)
 
         if heartbeat_start:
             self.heartbeat_start = heartbeat_start
@@ -188,6 +211,12 @@ class Muscle:
         else:
             self.node_a = node
         node.connections += 1
+
+    def get_copy(self):
+        new_muscle = Muscle(self.min_length, self.max_length, self.strength, self.heartbeat_start)
+        new_muscle.connect(self.node_a.get_copy())
+        new_muscle.connect(self.node_b.get_copy())
+        return new_muscle
 
     def passive(self):
         displacement = self.node_b.pos - self.node_a.pos

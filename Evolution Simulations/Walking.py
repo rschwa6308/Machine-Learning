@@ -3,10 +3,11 @@ from random import random
 from Organism import *
 
 
-def display(screen, organism):
+def display(screen, organisms):
     screen.fill(white)
 
-    organism.draw_on(screen, (screen.get_width() / 2, 0))
+    for i in range(len(organisms)):
+        organisms[i].draw_on(screen, (100 + 300 * i, -200))
 
     pg.display.update()
 
@@ -19,6 +20,7 @@ class Generation:
     def run_tests(self):
         for organism in self.organisms:
             organism.fitness = get_walking_distance(organism, 5)
+            organism.reset_to_start()
 
     def sort(self):
         self.organisms.sort(key=lambda o: o.fitness, reverse=True)
@@ -33,23 +35,20 @@ class Generation:
         return self.organisms[-1]
 
     def get_next_generation(self):
-        self.run_tests()
-        self.sort()
-
         new_organisms = []
         for rank in range(self.size):
             probability = (-1.0 / self.size) * rank + 1       # linear decline
             if random() < probability:
-                new_organisms.extend(self.organisms[rank].get_children(2))
-        print(len(new_organisms))
+                # new_organisms.extend(self.organisms[rank].get_children(2))
+                new_organisms.append(self.organisms[rank].get_children(1)[0])
+                new_organisms.append(self.organisms[rank])
 
         size_delta = len(new_organisms) - self.size
         if size_delta < 0:
-            for organism in self.organisms[:size_delta]:            # best organisms produce additional children
+            for organism in self.organisms[:-size_delta]:            # best organisms produce additional children
                 new_organisms.extend(organism.get_children(1))
         elif size_delta > 0:
             new_organisms = new_organisms[:self.size]               # worst organisms' children are killed
-            #TODO FIX THIS LINE ^^^ its doubling population size
 
         return Generation(new_organisms)
 
@@ -64,21 +63,25 @@ def get_walking_distance(organism, time_limit):
         organism.apply_physics()
         tick += 1
 
-    return max(organism.nodes, key=lambda n: n.pos.x).pos.x
+    return sum([node.pos.x for node in organism.nodes]) / organism.num_nodes
 
 
 def get_sorted(organisms):
     for org in organisms:
-        org.fitness = get_walking_distance(org, 5)
+        org.fitness = get_walking_distance(org, 15)
     return sorted(organisms, key=lambda o: o.fitness)[::-1]
 
 
 if __name__ == "__main__":
-    population_size = 1000
-    starting_organisms = [Organism() for _ in range(population_size)]
+    screen = pg.display.set_mode((1000, 500))
+    population_size = 500
+    starting_organisms = [Organism(4, 6) for _ in range(population_size)]
     population = Generation(starting_organisms)
 
-    for i in range(1, 100):
+    for i in range(1, 100000000000000):
+        population.run_tests()
+        population.sort()
+        best, median, worst = population.get_best(), population.get_median(), population.get_worst()
+        print("Population {0}: best = {1}    median = {2}    worst = {3}".format(i, best.fitness, median.fitness, worst.fitness))
+        display(screen, [best, median, worst])
         population = population.get_next_generation()
-        print(population.size)
-        print("Population {0}: best = {1}    median = {2}    worst = {3}".format(i, population.get_best().fitness, population.get_median().fitness, population.get_worst().fitness))
