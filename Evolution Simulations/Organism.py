@@ -131,6 +131,7 @@ class Organism:
             for node in new_organism.nodes:
                 node.pos.x += uniform(-5, 5)
                 node.pos.y += uniform(-5, 5)
+                node.friction = max(0, node.friction + uniform(-0.05, 0.05))
 
             for muscle in new_organism.muscles:
                 muscle.max_length += uniform(-2, 2)
@@ -204,7 +205,7 @@ class Muscle:
         if speed:
             self.speed = speed
         else:
-            self.speed = uniform(0, 2)
+            self.speed = uniform(0, 1)
 
         if heartbeat_start:
             self.heartbeat_start = heartbeat_start

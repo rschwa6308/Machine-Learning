@@ -40,8 +40,8 @@ class Generation:
             probability = (-1.0 / self.size) * rank + 1       # linear decline
             if random() < probability:
                 # new_organisms.extend(self.organisms[rank].get_children(2))
-                new_organisms.extend(self.organisms[rank].get_children(2))
-                # new_organisms.append(self.organisms[rank])
+                new_organisms.extend(self.organisms[rank].get_children(1))
+                new_organisms.append(self.organisms[rank].get_copy())
 
         size_delta = len(new_organisms) - self.size
         if size_delta < 0:
@@ -63,6 +63,7 @@ def get_walking_distance(organism, time_limit):
         organism.apply_physics()
         tick += 1
 
+    organism.reset_to_start()
     return sum([node.pos.x for node in organism.nodes]) / organism.num_nodes
 
 
@@ -91,6 +92,8 @@ def watch(screen, organism):
         pg.display.update()
         organism.apply_physics()
         tick += 1
+    screen.fill((255, 255, 255))
+    pg.display.update()
 
 
 if __name__ == "__main__":
