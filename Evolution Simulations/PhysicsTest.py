@@ -11,12 +11,8 @@ def display(screen, organism):
 
 screen = pg.display.set_mode((1000, 800))
 
-bob = Organism(6)
-##bob.nodes = [Node(5, (-100, 20), 1.0), Node(1, (0, 100), 0.1), Node(5, (100, 20), 0.1)]
-##bob.muscles = [Muscle(100, 150, 0.1), Muscle(100, 150, 0.1), Muscle(100, 150, 0.1)]
-##for i in range(len(bob.muscles)):
-##    bob.muscles[i].connect(bob.nodes[i])
-##    bob.muscles[i].connect(bob.nodes[(i + 1)%len(bob.muscles)])
+bob = Organism(4, 6)
+
 
 clock = pg.time.Clock()
 fps = 60
@@ -39,7 +35,7 @@ while not done:
             if event.key == pg.K_SPACE:
                 bob = bob.get_children(1)[0]
             if event.key == pg.K_r:
-                bob = Organism(6)
+                bob = Organism(4, 6)
 
     display(screen, bob)
 

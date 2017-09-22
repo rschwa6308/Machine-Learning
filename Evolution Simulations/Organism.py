@@ -28,7 +28,7 @@ class Organism:
         else:
             # bounded by # of sides + # of possible diagonals
             self.num_muscles = randint(self.num_nodes - 1,
-                                       self.num_nodes - 1 + self.num_nodes * (self.num_nodes - 3) / 2)
+                                       self.num_nodes + self.num_nodes * (self.num_nodes - 3) / 2)
 
         self.nodes = [Node() for _ in range(self.num_nodes)]
         self.muscles = [Muscle() for _ in range(self.num_muscles)]
@@ -98,8 +98,7 @@ class Organism:
                          (muscle.node_b.pos.x, screen.get_height() - muscle.node_b.pos.y) + offset, muscle.width)
         for node in self.nodes:
             pg.draw.circle(screen, node.color,
-                           (int(node.pos.x + offset.x), int(screen.get_height() - node.pos.y + offset.y)), node.radius,
-                           0)
+                           (int(node.pos.x + offset.x), int(screen.get_height() - node.pos.y + offset.y)), node.radius, 0)
 
     def reset_to_start(self):
         for node in self.nodes:
@@ -131,7 +130,10 @@ class Organism:
             for node in new_organism.nodes:
                 node.pos.x += uniform(-5, 5)
                 node.pos.y += uniform(-5, 5)
-                node.friction = max(0, node.friction + uniform(-0.05, 0.05))
+                node.mass = max(0.1, node.mass + uniform(-0.05, 0.05))
+                node.friction = min(1, max(0, node.friction + uniform(-0.05, 0.05)))
+                node.color = (int(node.friction * 255), 0, int((1 - node.friction) * 255))
+                node.radius = int(8 * (node.mass ** (1 / 3)))
 
             for muscle in new_organism.muscles:
                 muscle.max_length += uniform(-2, 2)

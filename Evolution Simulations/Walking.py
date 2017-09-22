@@ -19,6 +19,7 @@ class Generation:
 
     def run_tests(self):
         for organism in self.organisms:
+            organism.reset_to_start()
             organism.fitness = get_walking_distance(organism, 10)
             organism.reset_to_start()
 
@@ -39,9 +40,9 @@ class Generation:
         for rank in range(self.size):
             probability = (-1.0 / self.size) * rank + 1       # linear decline
             if random() < probability:
-                # new_organisms.extend(self.organisms[rank].get_children(2))
-                new_organisms.extend(self.organisms[rank].get_children(1))
-                new_organisms.append(self.organisms[rank].get_copy())
+                new_organisms.extend(self.organisms[rank].get_children(2))
+                # new_organisms.extend(self.organisms[rank].get_children(1))
+                # new_organisms.append(self.organisms[rank].get_copy())
 
         size_delta = len(new_organisms) - self.size
         if size_delta < 0:
@@ -54,6 +55,9 @@ class Generation:
 
 
 def get_walking_distance(organism, time_limit):
+    avg = sum([node.pos.x for node in organism.nodes]) / organism.num_nodes
+    for node in organism.nodes:
+        node.pos.x -= avg
     clock = pg.time.Clock()
     fps = 60
     tick_limit = fps * time_limit
@@ -63,32 +67,43 @@ def get_walking_distance(organism, time_limit):
         organism.apply_physics()
         tick += 1
 
-    organism.reset_to_start()
     return sum([node.pos.x for node in organism.nodes]) / organism.num_nodes
 
 
-def get_sorted(organisms):
-    for org in organisms:
-        org.fitness = get_walking_distance(org, 15)
-    return sorted(organisms, key=lambda o: o.fitness)[::-1]
-
-
 def watch(screen, organism):
+    avg = sum([node.pos.x for node in organism.nodes]) / organism.num_nodes
+    for node in organism.nodes:
+        node.pos.x -= avg
+
+    cam_x = 0
+    cam_x_vel = 0
     clock = pg.time.Clock()
     tick = 0
     max_tick = 60 * 10
     while tick < max_tick:
         clock.tick(60)
         for event in pg.event.get():
+            if event.type == pg.QUIT:
+                quit()
             if event.type == pg.KEYDOWN:
                 if event.key == pg.K_SPACE:
                     screen.fill((255, 255, 255))
                     pg.display.update()
                     return
+                elif event.key == pg.K_LEFT:
+                    cam_x_vel -= 1
+                elif event.key == pg.K_RIGHT:
+                    cam_x_vel += 1
+            if event.type == pg.KEYUP:
+                if event.key == pg.K_LEFT:
+                    cam_x_vel = 0
+                elif event.key == pg.K_RIGHT:
+                    cam_x_vel = 0
+        cam_x += cam_x_vel
         screen.fill((255, 255, 255))
-        for i in range(1, 10):
-            pg.draw.line(screen, (0, 0, 0), (i * 100, 0), (i * 100, screen.get_height()), 2)
-        organism.draw_on(screen, (100, 0))
+        for i in range(-10, 10):
+            pg.draw.line(screen, (0, 0, 0), (i * 100 - cam_x, 0), (i * 100 - cam_x, screen.get_height()), 2)
+        organism.draw_on(screen, (100 - cam_x, 0))
         pg.display.update()
         organism.apply_physics()
         tick += 1
@@ -98,8 +113,11 @@ def watch(screen, organism):
 
 if __name__ == "__main__":
     screen = pg.display.set_mode((1000, 500))
+
     population_size = 500
-    starting_organisms = [Organism(4, 6) for _ in range(population_size)]
+    starting_organisms = [Organism() for _ in range(population_size)]
+    for o in starting_organisms:
+        print(o.num_nodes)
     population = Generation(starting_organisms)
 
     for i in range(1, 100000000000000):
