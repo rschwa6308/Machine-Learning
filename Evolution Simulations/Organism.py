@@ -1,6 +1,6 @@
 import pygame as pg
 from pygame.math import Vector2 as V2
-from random import randint, uniform, choice
+from random import random, uniform, randint, choice
 from itertools import combinations
 from math import copysign
 from copy import copy, deepcopy
@@ -8,20 +8,14 @@ from copy import copy, deepcopy
 from Constants import *
 
 
-def projection(a, b):
-    other_length_sqrd = b[0] * b[0] + b[1] * b[1]
-    projected_length_times_other_length = a.dot(b)
-    return b * (projected_length_times_other_length / other_length_sqrd)
-
-
 class Organism:
-    heartbeat_period = 60
-
     def __init__(self, num_nodes=None, num_muscles=None):
+        self.heartbeat_period = 60
+
         if num_nodes:
             self.num_nodes = num_nodes
         else:
-            self.num_nodes = randint(3, 7)
+            self.num_nodes = randint(3, 8)
 
         if num_muscles:
             self.num_muscles = num_muscles
@@ -31,10 +25,10 @@ class Organism:
                                        self.num_nodes + self.num_nodes * (self.num_nodes - 3) / 2)
 
         self.nodes = [Node() for _ in range(self.num_nodes)]
-        self.muscles = [Muscle() for _ in range(self.num_muscles)]
+        self.muscles = [Muscle(heartbeat_period=self.heartbeat_period) for _ in range(self.num_muscles)]
 
         all_pairs = list(combinations(self.nodes, 2))
-        all_test_sets = combinations(all_pairs, self.num_muscles)
+        all_test_sets = combinations(all_pairs, len(self.muscles))
         for test_set in all_test_sets:
             unique_nodes_present = []
             for pair in test_set:
@@ -42,14 +36,18 @@ class Organism:
                     unique_nodes_present.append(pair[0])
                 if pair[1] not in unique_nodes_present:
                     unique_nodes_present.append(pair[1])
-            if len(unique_nodes_present) == self.num_nodes:
-                for i in range(self.num_muscles):
+            if len(unique_nodes_present) == len(self.nodes):
+                for i in range(len(self.muscles)):
                     self.muscles[i].connect(test_set[i][0])
                     self.muscles[i].connect(test_set[i][1])
                 break
 
         for m in self.muscles:
-            dist = m.node_a.pos.distance_to(m.node_b.pos)
+            try:
+                dist = m.node_a.pos.distance_to(m.node_b.pos)
+            except:
+                print(len(self.nodes), len(self.muscles))
+                quit()
             m.desired_length = dist
             m.min_length = m.desired_length * 0.5
             m.max_length = m.desired_length * 1.5
@@ -65,19 +63,23 @@ class Organism:
         self.starting_positions = {node: (node.pos.x, node.pos.y) for node in self.nodes}
 
     def apply_physics(self):
-        g = 1
+        g = V2(0, -1)
         # Gravity
         for node in self.nodes:
-            node.apply_force(V2(0, -g))
+            node.apply_force(g)
 
         # Ground Collision
         for node in self.nodes:
             if node.pos.y - node.radius <= 0:
                 node.pos.y = node.radius
                 node.vel.y = 0
+                # node.vel.x = 0
                 # TODO: make friction force proportional to total normal force on node
-                friction_force = V2(-copysign(node.friction * node.mass * g, node.vel.x), 0)
-                node.apply_force(friction_force)
+                friction_force = V2(-copysign(node.friction * node.mass * g.y, node.vel.x), 0)
+                if abs(friction_force.x) > abs(node.vel.x) * node.mass:
+                    node.vel.x = 0
+                else:
+                    node.apply_force(friction_force)
 
         for muscle in self.muscles:
             if muscle.heartbeat_start <= self.heartbeat <= muscle.heartbeat_start + self.heartbeat_period // 2:
@@ -101,23 +103,26 @@ class Organism:
                            (int(node.pos.x + offset.x), int(screen.get_height() - node.pos.y + offset.y)), node.radius, 0)
 
     def reset_to_start(self):
+        self.heartbeat = 0
         for node in self.nodes:
             node.pos = V2(self.starting_positions[node])
+            node.vel = V2(0, 0)
         for muscle in self.muscles:
             dist = muscle.node_a.pos.distance_to(muscle.node_b.pos)
             muscle.desired_length = dist
 
     def get_copy(self):
-        new_organism = Organism(self.num_nodes, self.num_muscles)
+        new_organism = Organism(len(self.nodes), len(self.muscles))
         self.reset_to_start()
+        new_organism.heartbeat_period = self.heartbeat_period
         node_map = {old_node: old_node.get_copy() for old_node in self.nodes}
         new_organism.muscles = [m.get_copy() for m in self.muscles]
-        for i in range(self.num_muscles):
+        for i in range(len(self.muscles)):
             old = self.muscles[i]
             new = new_organism.muscles[i]
             new.node_a = node_map[old.node_a]
             new.node_b = node_map[old.node_b]
-        new_organism.nodes = node_map.values()
+        new_organism.nodes = list(node_map.values())
         new_organism.starting_positions = {node: (node.pos.x, node.pos.y) for node in new_organism.nodes}
         return new_organism
 
@@ -132,7 +137,8 @@ class Organism:
                 node.pos.y += uniform(-5, 5)
                 node.mass = max(0.1, node.mass + uniform(-0.05, 0.05))
                 node.friction = min(1, max(0, node.friction + uniform(-0.05, 0.05)))
-                node.color = (int(node.friction * 255), 0, int((1 - node.friction) * 255))
+                n = node.friction / (node.friction + 1)
+                node.color = (int(n * 255), 0, int((1 - n) * 255))
                 node.radius = int(8 * (node.mass ** (1 / 3)))
 
             for muscle in new_organism.muscles:
@@ -142,8 +148,61 @@ class Organism:
                 muscle.speed = max(0, muscle.speed + uniform(-0.05, 0.05))
                 muscle.heartbeat_start += randint(-2, 2)
 
+            new_organism.heartbeat_period = max(5, new_organism.heartbeat_period + randint(-2, 2))
+
             new_organism.starting_positions = {node: (node.pos.x, node.pos.y) for node in new_organism.nodes}
 
+            # Major Mutations
+            if random() < 0.01:          # 1% chance of major mutation occurring
+                decision = random()
+
+                # Add node
+                if decision < 0.25:
+                    new_node = Node()
+                    new_muscle_a = Muscle(heartbeat_period=new_organism.heartbeat_period)
+                    new_muscle_b = Muscle(heartbeat_period=new_organism.heartbeat_period)
+                    new_muscle_a.connect(new_node)
+                    new_muscle_a.connect(choice(new_organism.nodes))
+                    new_muscle_b.connect(new_node)
+                    new_muscle_b.connect(choice([node for node in new_organism.nodes if node is not new_muscle_a.node_b]))
+                    new_organism.nodes.append(new_node)
+                    new_organism.muscles.extend([new_muscle_a, new_muscle_b])
+                    new_organism.starting_positions[new_node] = (new_node.pos.x, new_node.pos.y)
+                    new_organism.num_nodes += 1
+                    new_organism.num_muscles += 2
+
+                # Remove node
+                elif 0.25 <= decision < 0.5:
+                    if len(new_organism.nodes) > 3 and len(new_organism.muscles) < new_organism.num_nodes + new_organism.num_nodes * (new_organism.num_nodes - 3) // 2 - 1:
+                        target_node = choice(new_organism.nodes)
+                        new_organism.nodes.remove(target_node)
+                        for muscle in new_organism.muscles:
+                            if muscle.node_a is target_node or muscle.node_b is target_node:
+                                new_organism.muscles.remove(muscle)
+                                new_organism.num_muscles -= 1
+                        new_organism.num_nodes -= 1
+
+                # Add muscle
+                elif 0.5 <= decision < 0.75:
+                    if len(new_organism.muscles) < new_organism.num_nodes + new_organism.num_nodes * (new_organism.num_nodes - 3) // 2:
+                        pairs = combinations(new_organism.nodes, 2)
+                        for pair in pairs:
+                            for muscle in self.muscles:
+                                if not {muscle.node_a, muscle.node_b} == set(pair):
+                                    new_muscle = Muscle(heartbeat_period=new_organism.heartbeat_period)
+                                    new_muscle.connect(pair[0])
+                                    new_muscle.connect(pair[1])
+                                    new_organism.muscles.append(new_muscle)
+                                    break
+                            break
+                        new_organism.num_muscles += 1
+
+                # Remove muscle
+                else:
+                    new_organism.muscles.remove(choice(new_organism.muscles))
+                    new_organism.num_muscles -= 1
+
+            new_organism.nodes = set([m.node_a for m in new_organism.muscles] + [m.node_b for m in new_organism.muscles])
             new_organisms.append(new_organism)
         return new_organisms
 
@@ -167,7 +226,8 @@ class Node:
 
         self.connections = 0
 
-        self.color = (int(self.friction * 255), 0, int((1 - self.friction) * 255))
+        n = self.friction / (self.friction + 1)
+        self.color = (int(n * 255), 0, int((1 - n) * 255))
         self.radius = int(8 * (self.mass ** (1 / 3)))
 
         self.vel = V2((0, 0))
@@ -185,7 +245,7 @@ class Node:
 class Muscle:
     max_length_delta = 50
 
-    def __init__(self, min_length=None, max_length=None, strength=None, speed=None, heartbeat_start=None):
+    def __init__(self, min_length=None, max_length=None, strength=None, speed=None, heartbeat_start=None, heartbeat_period=None,):
         if min_length:
             self.min_length = min_length
         else:
@@ -209,10 +269,13 @@ class Muscle:
         else:
             self.speed = uniform(0, 1)
 
+        if not heartbeat_period:
+            heartbeat_period = 60
+
         if heartbeat_start:
             self.heartbeat_start = heartbeat_start
         else:
-            self.heartbeat_start = randint(0, Organism.heartbeat_period // 2 - 1)
+            self.heartbeat_start = randint(0, heartbeat_period // 2 - 1)
 
         self.node_a, self.node_b = None, None
 

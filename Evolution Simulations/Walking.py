@@ -41,7 +41,6 @@ class Generation:
             probability = (-1.0 / self.size) * rank + 1       # linear decline
             if random() < probability:
                 new_organisms.extend(self.organisms[rank].get_children(2))
-                # new_organisms.extend(self.organisms[rank].get_children(1))
                 # new_organisms.append(self.organisms[rank].get_copy())
 
         size_delta = len(new_organisms) - self.size
@@ -55,6 +54,7 @@ class Generation:
 
 
 def get_walking_distance(organism, time_limit):
+    # organism.reset_to_start()
     avg = sum([node.pos.x for node in organism.nodes]) / organism.num_nodes
     for node in organism.nodes:
         node.pos.x -= avg
@@ -71,6 +71,7 @@ def get_walking_distance(organism, time_limit):
 
 
 def watch(screen, organism):
+    organism.reset_to_start()
     avg = sum([node.pos.x for node in organism.nodes]) / organism.num_nodes
     for node in organism.nodes:
         node.pos.x -= avg
@@ -78,10 +79,11 @@ def watch(screen, organism):
     cam_x = 0
     cam_x_vel = 0
     clock = pg.time.Clock()
+    fps = 120
     tick = 0
     max_tick = 60 * 10
     while tick < max_tick:
-        clock.tick(60)
+        clock.tick(fps)
         for event in pg.event.get():
             if event.type == pg.QUIT:
                 quit()
@@ -91,17 +93,22 @@ def watch(screen, organism):
                     pg.display.update()
                     return
                 elif event.key == pg.K_LEFT:
-                    cam_x_vel -= 1
+                    cam_x_vel -= 4
                 elif event.key == pg.K_RIGHT:
-                    cam_x_vel += 1
+                    cam_x_vel += 4
             if event.type == pg.KEYUP:
                 if event.key == pg.K_LEFT:
                     cam_x_vel = 0
                 elif event.key == pg.K_RIGHT:
                     cam_x_vel = 0
+            if event.type == pg.MOUSEBUTTONDOWN:
+                if event.button == 4:
+                    fps += 1
+                elif event.button == 5:
+                    fps = max(1, fps - 1)
         cam_x += cam_x_vel
         screen.fill((255, 255, 255))
-        for i in range(-10, 10):
+        for i in range(-10, 20):
             pg.draw.line(screen, (0, 0, 0), (i * 100 - cam_x, 0), (i * 100 - cam_x, screen.get_height()), 2)
         organism.draw_on(screen, (100 - cam_x, 0))
         pg.display.update()
@@ -116,11 +123,9 @@ if __name__ == "__main__":
 
     population_size = 500
     starting_organisms = [Organism() for _ in range(population_size)]
-    for o in starting_organisms:
-        print(o.num_nodes)
     population = Generation(starting_organisms)
 
-    for i in range(1, 100000000000000):
+    for i in range(0, 100000000000000):
         population.run_tests()
         population.sort()
         best, median, worst = population.get_best(), population.get_median(), population.get_worst()
