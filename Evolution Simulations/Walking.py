@@ -81,7 +81,7 @@ def get_walking_distance(organism, time_limit):
 
 def watch(organism, screen=None):
     if not screen:
-        screen = pg.display.set_mode((400, 500))
+        screen = pg.display.set_mode((1000, 500))
 
     organism.reset_to_start()
     avg = sum([node.pos.x for node in organism.nodes]) / organism.num_nodes
