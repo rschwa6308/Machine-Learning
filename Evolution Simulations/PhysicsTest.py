@@ -9,9 +9,14 @@ def display(screen, organism):
     pg.display.update()
 
 
+def new_organism():
+    return Organism()
+
+
 screen = pg.display.set_mode((1000, 800))
 
-bob = Organism(4, 6)
+bob = new_organism()
+print(bob.get_species())
 
 
 clock = pg.time.Clock()
@@ -35,7 +40,8 @@ while not done:
             if event.key == pg.K_SPACE:
                 bob = bob.get_children(1)[0]
             if event.key == pg.K_r:
-                bob = Organism(4, 6)
+                bob = new_organism()
+                print(bob.get_species())
 
     display(screen, bob)
 

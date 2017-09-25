@@ -35,6 +35,10 @@ class Generation:
     def get_worst(self):
         return self.organisms[-1]
 
+    def get_species_distribution(self):
+        species_list = [org.get_species() for org in self.organisms]
+        return dict(sorted([(species, species_list.count(species)) for species in set(species_list)], key=lambda x: x[1], reverse=True))
+
     def get_next_generation(self):
         new_organisms = []
         for rank in range(self.size):
@@ -64,10 +68,15 @@ def get_walking_distance(organism, time_limit):
     tick = 0
     while tick <= tick_limit:
         # clock.tick(fps)
-        organism.apply_physics()
+        try:
+            organism.apply_physics()
+        except:
+            return 0
         tick += 1
-
-    return sum([node.pos.x for node in organism.nodes]) / organism.num_nodes
+    avg = sum([node.pos.x for node in organism.nodes]) / organism.num_nodes
+    if abs(avg) < 1e+10:
+        return avg
+    return 0
 
 
 def watch(screen, organism):
@@ -79,7 +88,7 @@ def watch(screen, organism):
     cam_x = 0
     cam_x_vel = 0
     clock = pg.time.Clock()
-    fps = 120
+    fps = 180
     tick = 0
     max_tick = 60 * 10
     while tick < max_tick:
@@ -93,9 +102,9 @@ def watch(screen, organism):
                     pg.display.update()
                     return
                 elif event.key == pg.K_LEFT:
-                    cam_x_vel -= 4
+                    cam_x_vel -= 6
                 elif event.key == pg.K_RIGHT:
-                    cam_x_vel += 4
+                    cam_x_vel += 6
             if event.type == pg.KEYUP:
                 if event.key == pg.K_LEFT:
                     cam_x_vel = 0
@@ -108,7 +117,7 @@ def watch(screen, organism):
                     fps = max(1, fps - 1)
         cam_x += cam_x_vel
         screen.fill((255, 255, 255))
-        for i in range(-10, 20):
+        for i in range(-1 + cam_x // 100, screen.get_width() // 100 + 1 + cam_x // 100):
             pg.draw.line(screen, (0, 0, 0), (i * 100 - cam_x, 0), (i * 100 - cam_x, screen.get_height()), 2)
         organism.draw_on(screen, (100 - cam_x, 0))
         pg.display.update()
@@ -129,7 +138,8 @@ if __name__ == "__main__":
         population.run_tests()
         population.sort()
         best, median, worst = population.get_best(), population.get_median(), population.get_worst()
-        print("Population {0}: best = {1}    median = {2}    worst = {3}".format(i, best.fitness, median.fitness, worst.fitness))
+        species_distribution = population.get_species_distribution()
+        print("Generation {0}: best = {1}    median = {2}    worst = {3}    species = {4}".format(i, round(best.fitness, 3), round(median.fitness, 3), round(worst.fitness, 3) , species_distribution))
         # display(screen, [best, median, worst])
         watch(screen, best)
         population = population.get_next_generation()

@@ -15,7 +15,7 @@ class Organism:
         if num_nodes:
             self.num_nodes = num_nodes
         else:
-            self.num_nodes = randint(3, 8)
+            self.num_nodes = randint(3, 20)
 
         if num_muscles:
             self.num_muscles = num_muscles
@@ -43,11 +43,7 @@ class Organism:
                 break
 
         for m in self.muscles:
-            try:
-                dist = m.node_a.pos.distance_to(m.node_b.pos)
-            except:
-                print(len(self.nodes), len(self.muscles))
-                quit()
+            dist = m.node_a.pos.distance_to(m.node_b.pos)
             m.desired_length = dist
             m.min_length = m.desired_length * 0.5
             m.max_length = m.desired_length * 1.5
@@ -61,37 +57,6 @@ class Organism:
         self.heartbeat = 0
 
         self.starting_positions = {node: (node.pos.x, node.pos.y) for node in self.nodes}
-
-    def apply_physics(self):
-        g = V2(0, -1)
-        # Gravity
-        for node in self.nodes:
-            node.apply_force(g)
-
-        # Ground Collision
-        for node in self.nodes:
-            if node.pos.y - node.radius <= 0:
-                node.pos.y = node.radius
-                node.vel.y = 0
-                # node.vel.x = 0
-                # TODO: make friction force proportional to total normal force on node
-                friction_force = V2(-copysign(node.friction * node.mass * g.y, node.vel.x), 0)
-                if abs(friction_force.x) > abs(node.vel.x) * node.mass:
-                    node.vel.x = 0
-                else:
-                    node.apply_force(friction_force)
-
-        for muscle in self.muscles:
-            if muscle.heartbeat_start <= self.heartbeat <= muscle.heartbeat_start + self.heartbeat_period // 2:
-                muscle.contract()
-            else:
-                muscle.expand()
-                # muscle.passive()
-
-        for node in self.nodes:
-            node.apply_velocity()
-
-        self.heartbeat = (self.heartbeat + 1) % self.heartbeat_period
 
     def draw_on(self, screen, offset):
         offset = V2(offset)
@@ -133,8 +98,8 @@ class Organism:
 
             new_organism.reset_to_start()
             for node in new_organism.nodes:
-                node.pos.x += uniform(-5, 5)
-                node.pos.y += uniform(-5, 5)
+                node.pos.x = max(0, min(200, node.pos.x + uniform(-5, 5)))
+                node.pos.y = max(0, min(200, node.pos.y + uniform(-5, 5)))
                 node.mass = max(0.1, node.mass + uniform(-0.05, 0.05))
                 node.friction = min(1, max(0, node.friction + uniform(-0.05, 0.05)))
                 n = node.friction / (node.friction + 1)
@@ -144,15 +109,15 @@ class Organism:
             for muscle in new_organism.muscles:
                 muscle.max_length += uniform(-2, 2)
                 muscle.min_length += uniform(-2, 2)
-                muscle.strength = max(0, muscle.strength, uniform(-0.001, 0.001))
+                muscle.strength = max(0, muscle.strength, uniform(-0.005, 0.005))
                 muscle.speed = max(0, muscle.speed + uniform(-0.05, 0.05))
-                muscle.heartbeat_start += randint(-2, 2)
+                muscle.heartbeat_start += randint(-3, 3)
 
             new_organism.heartbeat_period = max(5, new_organism.heartbeat_period + randint(-2, 2))
 
             new_organism.starting_positions = {node: (node.pos.x, node.pos.y) for node in new_organism.nodes}
 
-            # Major Mutations
+            # Major Mutations (species change)
             if random() < 0.01:          # 1% chance of major mutation occurring
                 decision = random()
 
@@ -206,6 +171,40 @@ class Organism:
             new_organisms.append(new_organism)
         return new_organisms
 
+    def get_species(self):
+        return chr(ord('A') - 3 + self.num_nodes) + str(self.num_muscles)     # A5 = triangle with 5 muscles
+
+    def apply_physics(self):
+        g = V2(0, -1)
+        # Gravity
+        for node in self.nodes:
+            node.apply_force(g)
+
+        # Ground Collision
+        for node in self.nodes:
+            if node.pos.y - node.radius <= 0:
+                node.pos.y = node.radius
+                node.vel.y = 0
+                # node.vel.x = 0
+                # TODO: make friction force proportional to total normal force on node (not just weight)
+                friction_force = V2(-copysign(node.friction * node.mass * g.y, node.vel.x), 0)
+                if abs(friction_force.x) > abs(node.vel.x) * node.mass:
+                    node.vel.x = 0
+                else:
+                    node.apply_force(friction_force)
+
+        for muscle in self.muscles:
+            if muscle.heartbeat_start <= self.heartbeat <= muscle.heartbeat_start + self.heartbeat_period // 2:
+                muscle.contract()
+            else:
+                muscle.expand()
+                # muscle.passive()
+
+        for node in self.nodes:
+            node.apply_velocity()
+
+        self.heartbeat = (self.heartbeat + 1) % self.heartbeat_period
+
 
 class Node:
     def __init__(self, mass=None, pos=None, friction=None):
@@ -222,7 +221,7 @@ class Node:
         if friction:
             self.friction = friction
         else:
-            self.friction = uniform(0, 1)
+            self.friction = uniform(0, 2)
 
         self.connections = 0
 
