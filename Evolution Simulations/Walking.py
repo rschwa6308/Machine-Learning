@@ -101,8 +101,7 @@ def watch(organism, screen=None):
                 quit()
             if event.type == pg.KEYDOWN:
                 if event.key == pg.K_SPACE:
-                    screen.fill((255, 255, 255))
-                    pg.display.update()
+                    pg.display.quit()
                     return
                 elif event.key == pg.K_LEFT:
                     cam_x_vel -= 6
@@ -120,8 +119,8 @@ def watch(organism, screen=None):
                     fps = max(1, fps - 1)
 
         avg_pos =  sum([node.pos.x for node in organism.nodes]) / organism.num_nodes
-        if avg_pos >= screen.get_width() - 300:
-            cam_x = int(avg_pos) - 100
+        if avg_pos >= screen.get_width() - 200:
+            cam_x = int(avg_pos) - screen.get_width() + 200
 
         cam_x += cam_x_vel
         screen.fill((255, 255, 255))
@@ -146,7 +145,9 @@ if __name__ == "__main__":
         population.sort()
         best, median, worst = population.get_best(), population.get_median(), population.get_worst()
         species_distribution = population.get_species_distribution()
-        print("Generation {0}: best = {1}    median = {2}    worst = {3}    species = {4}".format(i, round(best.fitness, 3), round(median.fitness, 3), round(worst.fitness, 3), species_distribution))
+        print("Generation {0}: best = {1}    median = {2}    worst = {3}    species = {4}".format(
+            i, round(best.fitness, 3), round(median.fitness, 3), round(worst.fitness, 3), species_distribution)
+        )
         # display(screen, [best, median, worst])
         watch(best)
         population = population.get_next_generation()
