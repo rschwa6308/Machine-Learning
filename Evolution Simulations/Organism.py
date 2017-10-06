@@ -168,6 +168,11 @@ class Organism:
                     new_organism.num_muscles -= 1
 
             new_organism.nodes = set([m.node_a for m in new_organism.muscles] + [m.node_b for m in new_organism.muscles])
+
+            # Completely new random organism
+            if random() < 0.01:         # 1% chance of occurring
+                new_organism = Organism()
+
             new_organisms.append(new_organism)
         return new_organisms
 
@@ -201,9 +206,9 @@ class Organism:
 
         # EXPERIMENTAL - makes all nodes have infinite friction
         #                must be calculated after muscle forces
-        for node in self.nodes:
-            if node.pos.y - node.radius <= 0:
-                node.vel.x = 0
+        # for node in self.nodes:
+        #     if node.pos.y - node.radius <= 0:
+        #         node.vel.x = 0
 
         for node in self.nodes:
             node.apply_velocity()
