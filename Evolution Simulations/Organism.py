@@ -15,7 +15,7 @@ class Organism:
         if num_nodes:
             self.num_nodes = num_nodes
         else:
-            self.num_nodes = randint(3, 12)
+            self.num_nodes = randint(3, 10)
 
         if num_muscles:
             self.num_muscles = num_muscles
@@ -185,7 +185,6 @@ class Organism:
             if node.pos.y - node.radius <= 0:
                 node.pos.y = node.radius
                 node.vel.y = 0
-                # node.vel.x = 0
                 # TODO: make friction force proportional to total normal force on node (not just weight)
                 friction_force = V2(-copysign(node.friction * node.mass * g.y, node.vel.x), 0)
                 if abs(friction_force.x) > abs(node.vel.x) * node.mass:
@@ -199,6 +198,12 @@ class Organism:
             else:
                 muscle.expand()
                 # muscle.passive()
+
+        # EXPERIMENTAL - makes all nodes have infinite friction
+        #                must be calculated after muscle forces
+        for node in self.nodes:
+            if node.pos.y - node.radius <= 0:
+                node.vel.x = 0
 
         for node in self.nodes:
             node.apply_velocity()
