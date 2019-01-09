@@ -49,9 +49,11 @@ class Generation:
                 new_organisms.extend(self.organisms[rank].get_children(2))
                 # new_organisms.append(self.organisms[rank].get_copy())
 
+        new_organisms.insert(0, self.get_best().get_copy())         # best organism lives on
+
         size_delta = len(new_organisms) - self.size
         if size_delta < 0:
-            for organism in self.organisms[:-size_delta]:            # best organisms produce additional children
+            for organism in self.organisms[:-size_delta]:           # best organisms produce additional children
                 new_organisms.extend(organism.get_children(1))
         elif size_delta > 0:
             new_organisms = new_organisms[:self.size]               # worst organisms' children are killed
@@ -76,7 +78,7 @@ def get_walking_distance(organism, time_limit):
             return 0
         tick += 1
     avg = sum([node.pos.x for node in organism.nodes]) / organism.num_nodes
-    if abs(avg) < 1e+10:
+    if abs(avg) < 1e+5:
         return avg
     return 0
 
@@ -155,7 +157,7 @@ def display_graphs(history, census, species_distribution, i):
 
 
 if __name__ == "__main__":
-    population_size = 500
+    population_size = 200
     starting_organisms = [Organism() for _ in range(population_size)]
     population = Generation(starting_organisms)
 
@@ -169,15 +171,17 @@ if __name__ == "__main__":
         species_distribution = population.get_species_distribution()
 
         print("Generation {0}: best = {1}    median = {2}    worst = {3}    species = {4}".format(
-            i, round(best.fitness, 3), round(median.fitness, 3), round(worst.fitness, 3), species_distribution)
+            i, int(best.fitness), int(median.fitness), int(worst.fitness), species_distribution)
         )
 
         history.append([best.fitness, median.fitness, worst.fitness])
         census = [org.fitness for org in population.organisms]
 
-        graph_process = mp.Process(target=display_graphs, args=(history, census, species_distribution, i))
-        graph_process.start()
+        if i % 10 == 0:
+            graph_process = mp.Process(target=display_graphs, args=(history, census, species_distribution, i))
+            graph_process.start()
 
-        watch(best)
-        graph_process.terminate()
+            watch(best)
+            graph_process.terminate()
+
         population = population.get_next_generation()

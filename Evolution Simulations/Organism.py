@@ -15,7 +15,7 @@ class Organism:
         if num_nodes:
             self.num_nodes = num_nodes
         else:
-            self.num_nodes = randint(3, 10)
+            self.num_nodes = randint(3, 8)
 
         if num_muscles:
             self.num_muscles = num_muscles
